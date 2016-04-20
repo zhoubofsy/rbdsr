@@ -44,6 +44,14 @@ ISCSI_PROCNAME = "iscsi_tcp"
 DEFAULT_PORT = 6789
 ''' end of modified definitions of paramters like in ISCSISR.py '''
 
+def dbg_prt(fmt, *arg):
+    output = fmt % arg + '\n'
+    # print output
+    dbg_log = open('/root/rbdsr.log', 'a')
+    dbg_log.write(output)
+    dbg_log.flush()
+    dbg_log.close()
+
 class RBDSR(ISCSISR.ISCSISR):
     def handles(type):
         if type == "rbd":
@@ -52,6 +60,7 @@ class RBDSR(ISCSISR.ISCSISR):
     handles = staticmethod(handles)
 
     def load(self, sr_uuid):
+	dbg_prt("[rbdsr] load")
         ''' Some repetition since LVHDoISCSI has pretty much everything inside of load method'''
         # Check if minimal amount of parameters(i.e. IP address of monitor) is passed to the call
         if not self.dconf.has_key('target') or not self.dconf['target']:
@@ -73,7 +82,8 @@ class RBDSR(ISCSISR.ISCSISR):
             pool_name = self.dconf['targetIQN']
             
             ### Getting RBD image corresponding to RBD pool
-            block_list = self._getCEPH_response('sudo rbd -p %s ls' % pool_name)
+            block_list = self._getCEPH_response('rbd -p %s ls' % pool_name)
+            dbg_prt("[rbdsr] rbd ls, poolname:%s, block_list:%s", pool_name, block_list)
             rbd_image_list = self._formatRBD_image(pool_name, block_list)
             ''' We don't attach rbd during discovery of the images, 
             but parent class(LVHDoISCSI) needs 'attached' flag to print LUNs'''
@@ -81,6 +91,7 @@ class RBDSR(ISCSISR.ISCSISR):
             
             ''' If we have SCSIid, means we have discovered targetIQN already and ready to attach rbd block'''    
         elif self.dconf.has_key('SCSIid'):
+	    dbg_prt("[rbdsr] SCSIid begin:")
             self.attached = os.path.exists('/dev/disk/by-scsid/%s' % self.dconf['SCSIid'])
             self.path = '/dev/disk/by-id/scsi-%s' % self.dconf['SCSIid']
             if os.path.exists('/var/lock/sm/%s/sr' % sr_uuid) and not self.attached:
@@ -90,8 +101,9 @@ class RBDSR(ISCSISR.ISCSISR):
             either targetIQN nor SCSIid, which means we are at the begining of the XC iSCSI SR create dialog
             and need to discover RBD pools from the monitors.'''
         else:
+	    dbg_prt("[rbdsr] Get RBD pool :")
             ### Getting RBD pool using ssh user and password
-            rbd_pool_string = self._getCEPH_response('sudo ceph osd lspools')
+            rbd_pool_string = self._getCEPH_response('ceph osd lspools')
             if 'fault' in rbd_pool_string or not rbd_pool_string:
                 raise xs_errors.XenError('ISCSILogin')
             else:
@@ -163,7 +175,7 @@ class RBDSR(ISCSISR.ISCSISR):
             if not 'sudo' in block and '\r' in block: 
                 rbd_image_path = os.path.join(base_path, rbd_pool_name, block.rstrip())
                 rbd_image = open(rbd_image_path,'w')
-                image_info_response = self._getCEPH_response('sudo rbd --format json -p %s info %s' % (rbd_pool_name, block))
+                image_info_response = self._getCEPH_response('rbd --format json -p %s info %s' % (rbd_pool_name, block))
                 image_info = ''
                 if len(image_info_response) >=3:
                     image_info = image_info_response[2]
@@ -221,8 +233,9 @@ class RBDSR(ISCSISR.ISCSISR):
                 
                 
     def attach(self, sr_uuid):
+        dbg_prt("[rbdsr] attach")
         ### Getting MON list using admin key above
-        ceph_mon_list_xml = self._getCEPH_response('sudo ceph mon_status -f xml')
+        ceph_mon_list_xml = self._getCEPH_response('ceph mon_status -f xml')
         ceph_mon_list = self._formatMON_list(ceph_mon_list_xml)
         
         # We got accurate list of monitor addresses, need pass that list of IPs to rbd add srting
@@ -241,10 +254,11 @@ class RBDSR(ISCSISR.ISCSISR):
         ### Getting admin key using ssh command
         if self.dconf.has_key('SCSIid') and self.dconf['SCSIid']:
             util._testHost(self.dconf['target'].split(',')[0], long(self.dconf['port']), 'RBD Monitor')
-            rbd_auth_output =  self._getCEPH_response('sudo ceph auth list| grep admin -A1| grep key')
+            rbd_auth_output =  self._getCEPH_response('ceph auth list| grep admin -A1| grep key')
             rbd_auth_key = self._formatCEPH_key(rbd_auth_output)
             
             rbd_image_name = self.dconf['SCSIid']
+            dbg_prt("[rbdsr] rbd image name: %s",rbd_image_name)
             attach_string = '%s name=admin,secret=%s %s %s' % (accurate_address_string, rbd_auth_key, self.dconf['targetIQN'], rbd_image_name)
             if not os.path.exists('/sys/bus/rbd'):
                 os.execlp("modprobe", "modprobe", "rbd")
@@ -252,6 +266,7 @@ class RBDSR(ISCSISR.ISCSISR):
             rbd_scsi_path =  '/dev/disk/by-scsid/%s' % rbd_image_name
             rbd_block_index = self._getRBD_index(rbd_image_name)
             if not os.path.exists(rbd_disk_path) and not rbd_block_index:
+                dbg_prt("[rbdsr] add rbd device begin:")
                 try:
                     rbd_add = open('/sys/bus/rbd/add','w')
                     rbd_add.write(attach_string)
@@ -264,23 +279,30 @@ class RBDSR(ISCSISR.ISCSISR):
                 except IOError, e:
                     util.SMlog('the error is %s' % e)
                     self.attached = False
+            else:
+                dbg_prt("[rbdsr] rbd_disk_path:%s , rbd_block_index:%s",rbd_disk_path,rbd_block_index)
         else:
             '''in iSCSI sr we need to attach target to interrogate LUN for size, scsi_id etc etc. 
             We don't need to do this with current way of finding things over ssh'''
+	    dbg_prt("[rbdsr] attach Has no key of SCSIid")
             self.attached = True
       
       
     def detach(self, sr_uuid):
+	dbg_prt("[rbdsr] detach")
         if self.dconf.has_key('SCSIid') and self.dconf['SCSIid']:
             rbd_image_name = self.dconf['SCSIid']
             rbd_disk_path =  '/dev/disk/by-id/scsi-%s' % rbd_image_name
             rbd_scsi_path =  '/dev/disk/by-scsid/%s' % rbd_image_name
             rbd_image_index = self._getRBD_index(rbd_image_name)
             if os.path.exists(rbd_disk_path):
+		dbg_prt("[rbdsr] unlink rbd_disk_path:%s",rbd_disk_path)
                 os.unlink(rbd_disk_path)
             if os.path.exists(rbd_scsi_path):
+		dbg_prt("[rbdsr] cleanCEPH_folder:%s",rbd_scsi_path)
                 self._cleanCEPH_folder(rbd_scsi_path)
             if os.path.exists('/dev/rbd%s' % rbd_image_index):
+		dbg_prt("[rbdsr] remove rbd device idx:%s",rbd_image_index)
                 rbd_remove = open('/sys/bus/rbd/remove','w')
                 rbd_remove.write(rbd_image_index)
                 rbd_remove.close()
@@ -334,6 +356,7 @@ class RBDSR(ISCSISR.ISCSISR):
             self.attach('existing-sr-uuid')
             return True
       
+dbg_prt("----------------------------------------------------------")
 if __name__ == '__main__':
     SRCommand.run(RBDSR, DRIVER_INFO)
 else:
