@@ -1,0 +1,11 @@
+--- ./mpath_dmp.py.from	2016-04-27 15:23:08.172538182 +0800
++++ ./mpath_dmp.py	2016-04-27 15:24:34.694334749 +0800
+@@ -289,6 +289,8 @@
+         return DEVBYIDPATH + "/scsi-" + SCSIid
+ 
+ # modify by zhoub
++def path_nomp(SCSIid):
++    return DEVBYIDPATH + "/scsi-" + SCSIid
+ 
+ def status(SCSIid):
+     pass

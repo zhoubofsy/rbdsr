@@ -4,7 +4,10 @@
 2. patch lvm.conf to detect volumes on rbd block devices
 3. patch LVHDoISCSISR.py to redirect port 6789 requests to RBDSR.py
 4. patch pxssh.py to allow remote commands
-5. copy RBDSR.py to /opt/xensource/sm'''
+5. copy RBDSR.py to /opt/xensource/sm
+6. patch SR.py
+7. patch mpath_dmp.py
+'''
 
 import os, sys, shutil, subprocess
 
@@ -34,7 +37,19 @@ if __name__ == "__main__":
     else:
         print('Couldn\'t find lvm.pacth here -download package again')
         sys.exit(1)
-        
+    
+    if os.path.exists('SR.patch'):
+        print('#### SR.patch is here too ####')
+    else:
+        print('Couldn\'t find SR.py here -  download package again')
+        sys.exit(1)
+       
+    if os.path.exists('mpath_dmp.patch'):
+        print('#### mpath_dmp.patch is here too ####')
+    else:
+        print('Couldn\'t find mpath_dmp.py here -  download package again')
+        sys.exit(1)
+
     print('\n########################################\n\nWe have all files we need, enabling RBDSR:')
     print('Enabling rbd driver on boot via rc.modules(ref https://www.centos.org/docs/)')
     '''TODO: should check if rbd is already in the rc.modules before writing it'''
@@ -80,6 +95,23 @@ if __name__ == "__main__":
         sys.exit(1)
     
     shutil.copyfile(current_path + '/RBDSR.py', 'RBDSR.py')
-    print('....\nRBDSR.py has been copied to /opt/xensource/sm')
+    print('....\nRBDSR.py has been copied to /opt/xensource/sm') 
+    
+    shutil.copy('SR.py','SR.py-orig') 
+    try:
+        subprocess.call(["patch", "SR.py", "%s/SR.patch" % current_path])
+        print('....\nSR.py is patched')
+    except OSError, e:
+        print 'Couldn\'t patch SR.py. Error: %s [errno=%s]' % (e.args)
+        sys.exit(1)
+    
+    shutil.copy('mpath_dmp.py','mpath_dmp.py-orig') 
+    try:
+        subprocess.call(["patch", "mpath_dmp.py", "%s/mpath_dmp.patch" % current_path])
+        print('....\nSR.py is patched')
+    except OSError, e:
+        print 'Couldn\'t patch mpath_dmp.py. Error: %s [errno=%s]' % (e.args)
+        sys.exit(1)   
+        
 
     sys.exit(0)
