@@ -14,22 +14,13 @@ like the one described here: line 49 https://github.com/ceph/ceph-docker/blob/ma
 Once the RBD block device is mapped, LVM SR can be created on top of it and shared across a XenServer pool.
 
 ## Install
-Download latest version of the pluging to each host: `wget https://github.com/mstarikov/rbdsr/archive/master.zip`
+Download latest version of the pluging to each host: https://eking-tech.eicp.net:4443/svn/cloud/src/rbdsr-xen-server
 
-Unzip the archive(wget on xenserver might strip the extension): `unzip master`
+Now you can install/uninstall the RBDSR. 
+Run `python ./install_rbdsr.py enable` on each host to patch all required files and copy RBDSR.py to `/opt/xensource/sm`.
+Run `python ./uninstall_rbdsr.py enable` on each host to uninstall.
+Run `python ./uninstall_rbdsr.py check` on each host to check status.
 
-Now you can install this demo script automatically using `rbd-install.py`. 
-Run `python ./rbd-install.py enable` on each host to patch all required files and copy RBDSR.py to `/opt/xensource/sm`.
-
-If for some reason you are having problems with the install script, please [let me know](mailto:mr.mark.starikov@gmail.com) first and then perform following changes on each host in the pool to enable RBD SR:
-```
-# patch /usr/lib/python2.4/site-packages/pxssh.py pxssh.patch
-# patch /etc/lvm.conf lvm.patch
-# patch /opt/xensource/sm/LVHDoISCSISR.py LVHDoISCSISR.patch
-# echo modprobe rbd >> /etc/rc.modules 
-# chmod +x /etc/rc.modules
-# cp RBDSR.py /opt/xensource/sm/
-```
 ## Usage
 
 RBDSR.py extends iSCSI SR(lvmoiscsi) functionality to attach rbd images to the Dom0 and place LVHDs(VHD inside of LVM volume) VDIs on top of that block device.
@@ -42,11 +33,14 @@ Minimal requirements to create RBDSR are:
 * chappassword - password of the ceph user
 * port - monitor port number. currently only 6789 will divert LVHDoISCSISR into RBDSR
 
-###### Examples
-To create SR you can use ragular sr-create syntax:
-```
-# xe sr-create type=lvmoiscsi name-label=RADOS-SR shared=true device-config:target=<monitor ip address> device-config:port=6789 device-config:targetIQN=<rbd pool name> device-config:SCSIid=<rbd image name> device-config:chapuser=<monitor sudoer username> device-config:chappassword=<ceph user password>
-```
-Or via XenCenter:
 
-![XenCenter Create new RBD SR with caption](https://cloud.githubusercontent.com/assets/15868352/11228256/83176bc8-8ddf-11e5-9394-3a533f1ccf1b.png)
+## Version
+
+eg: 1.0.0
+
+* 第一位，表示版本号
+* 第二位，0：表示预发布版本；1：表示测试开发版本；2：表示稳定版本
+* 第三位，feature、bugfix 版本号
+
+### 版本号获取方法
+RBDSR 安装成功后，在`opt/xensource/sm`目录下运行`python ./RBDSR.py version`查看当前版本号
