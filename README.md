@@ -18,7 +18,11 @@ Download latest version of the pluging to each host: https://eking-tech.eicp.net
 
 Now you can install/uninstall the RBDSR. 
 Run `python ./install_rbdsr.py enable` on each host to patch all required files and copy RBDSR.py to `/opt/xensource/sm`.
+
+## Uninstall
 Run `python ./uninstall_rbdsr.py enable` on each host to uninstall.
+
+## Check Status
 Run `python ./uninstall_rbdsr.py check` on each host to check status.
 
 ## Usage
