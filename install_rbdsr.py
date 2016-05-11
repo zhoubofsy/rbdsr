@@ -53,10 +53,13 @@ if __name__ == "__main__":
     print('\n########################################\n\nWe have all files we need, enabling RBDSR:')
     print('Enabling rbd driver on boot via rc.modules(ref https://www.centos.org/docs/)')
     '''TODO: should check if rbd is already in the rc.modules before writing it'''
+    if os.path.exists('/etc/rc.modules'):
+        shutil.copy('/etc/rc.modules','/etc/rc.modules-orig')
     try:
         rcfile = open('/etc/rc.modules','a')
         rcfile.write('\nmodprobe rbd\n')
         rcfile.close()
+	subprocess.call(["modprobe","rbd"])
     except IOError, e:
         print 'Was unable to add rbd to rc.modules. Error: %s' % e
         sys.exit(1)
