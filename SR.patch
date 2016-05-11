@@ -1,13 +1,13 @@
---- ./from_sr.py	2016-04-27 15:18:44.997112339 +0800
-+++ SR.py	2016-04-27 15:17:21.695411056 +0800
-@@ -471,7 +471,10 @@
+--- ./SR.py.orig	2016-05-10 14:45:56.000000000 +0800
++++ ./SR.py.new	2016-05-10 14:49:21.000000000 +0800
+@@ -469,7 +469,10 @@
              self.mpathmodule.deactivate()
  
      def _pathrefresh(self, obj):
 -        self.dconf['device'] = self.mpathmodule.path(self.SCSIid)
-+	if self.dconf.has_key('port') and self.dconf['port'] == '6789':
-+	    self.dconf['device'] = self.mpathmodule.path_nomp(self.SCSIid)
-+	else:
++        if self.dconf.has_key('port') and self.dconf['port'] == '6789':
++            self.dconf['device'] = self.mpathmodule.path_nomp(self.SCSIid)
++        else:
 +            self.dconf['device'] = self.mpathmodule.path(self.SCSIid)
          super(obj, self).load(self.uuid)
  

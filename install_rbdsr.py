@@ -68,7 +68,7 @@ if __name__ == "__main__":
         sys.exit(1)
     current_path = os.path.dirname(os.path.realpath(__file__))
     os.chdir('/usr/lib/python2.4/site-packages/')
-    shutil.copy('pxssh.py','pxssh.py-oring')
+    shutil.copy('pxssh.py','pxssh.py-orig')
     try:
         subprocess.call(["patch", "pxssh.py", "%s/pxssh.patch" % current_path])
         print('....\npxssh.py is patched')
@@ -77,7 +77,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     os.chdir('/etc/lvm')
-    shutil.copy('lvm.conf','lvm.conf-oring')
+    shutil.copy('lvm.conf','lvm.conf-orig')
     try:
         subprocess.call(["patch", "lvm.conf", "%s/lvm.patch" % current_path])
         print('....\nlvm.conf is patched')
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     shutil.copy('mpath_dmp.py','mpath_dmp.py-orig') 
     try:
         subprocess.call(["patch", "mpath_dmp.py", "%s/mpath_dmp.patch" % current_path])
-        print('....\nSR.py is patched')
+        print('....\nmpath_dmp.py is patched')
     except OSError, e:
         print 'Couldn\'t patch mpath_dmp.py. Error: %s [errno=%s]' % (e.args)
         sys.exit(1)   
