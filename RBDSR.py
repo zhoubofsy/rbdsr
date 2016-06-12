@@ -45,7 +45,7 @@ DEFAULT_PORT = 6789
 ''' end of modified definitions of paramters like in ISCSISR.py '''
 
 def ver_rbdsr():
-    return "1.0.0"
+    return "1.0.1"
 
 def dbg_prt(fmt, *arg):
     output = fmt % arg + '\n'
