@@ -91,7 +91,6 @@ class RBDSR(ISCSISR.ISCSISR):
             
             ### Getting RBD image corresponding to RBD pool
             block_list = self._getCEPH_response('rbd -p %s ls' % pool_name)
-            #block_list.pop() # pop last one which is a blank
             rbd_image_list = self._formatRBD_image(pool_name, block_list)
             dbg_prt("[rbdsr] rbd ls, poolname:[%s], block_list:[%s], rbd_image_list:[%s]", pool_name, block_list, rbd_image_list)
             
@@ -114,7 +113,6 @@ class RBDSR(ISCSISR.ISCSISR):
             dbg_prt("[rbdsr] Get RBD pool :")
             ### Getting RBD pool using ssh user and password
             rbd_pool_string = self._getCEPH_response('ceph osd lspools')
-            #rbd_pool_string.pop() # remove last one which is a blank.
             if 'fault' in rbd_pool_string or not rbd_pool_string:
                 raise xs_errors.XenError('ISCSILogin')
             else:
