@@ -91,7 +91,7 @@ class RBDSR(ISCSISR.ISCSISR):
             
             ### Getting RBD image corresponding to RBD pool
             block_list = self._getCEPH_response('rbd -p %s ls' % pool_name)
-            block_list.pop() # pop last one which is a blank
+            #block_list.pop() # pop last one which is a blank
             rbd_image_list = self._formatRBD_image(pool_name, block_list)
             dbg_prt("[rbdsr] rbd ls, poolname:[%s], block_list:[%s], rbd_image_list:[%s]", pool_name, block_list, rbd_image_list)
             
@@ -114,7 +114,7 @@ class RBDSR(ISCSISR.ISCSISR):
             dbg_prt("[rbdsr] Get RBD pool :")
             ### Getting RBD pool using ssh user and password
             rbd_pool_string = self._getCEPH_response('ceph osd lspools')
-            rbd_pool_string.pop() # remove last one which is a blank.
+            #rbd_pool_string.pop() # remove last one which is a blank.
             if 'fault' in rbd_pool_string or not rbd_pool_string:
                 raise xs_errors.XenError('ISCSILogin')
             else:
@@ -202,10 +202,14 @@ class RBDSR(ISCSISR.ISCSISR):
                 rbd_image = open(rbd_image_path,'w')
                 image_info_response = self._getCEPH_response('rbd --format json -p %s info %s' % (rbd_pool_name, block))
                 image_info = ''
+                if image_info_response != None and len(image_info_response) == 1:
+                    image_info = image_info_response[0]
+                '''
                 if len(image_info_response) >=3:
                     image_info = image_info_response[2]
                 else:
                     image_info = image_info_response[1]
+                '''
                 util.SMlog('RBD info of the image is %s' % image_info)
                 rbd_image.write('%s' % image_info)
                 rbd_image.close()
@@ -262,6 +266,13 @@ class RBDSR(ISCSISR.ISCSISR):
             result = s.before.split('\n')
             # remove the last one which is a blank
             dbg_prt("[rbdsr] ceph_response cmd : [%s], result : [%s], result_len : %d", cmd, result, len(result))
+            # reomve '\r' and ''
+            for item in result:
+                if item == '\r':
+                    result.remove(item)
+                elif item == '':
+                    result.remove(item)
+            dbg_prt("[rbdsr] ceph_response result : %s , result_len: %d", result, len(result))
             return result[1:]
                 
                 
