@@ -1,12 +1,12 @@
 #!/usr/bin/python
-# Following ISCSISR.py as an example, RBDSR provides LVHD SR over rbd block device.
+# Following BaseISCSI.py as an example, RBDSR provides LVHD SR over rbd block device.
 # created by Mark Starikov(mr.mark.starikov@gmail.com)
 
-import ISCSISR, VDI, scsiutil, SR, SRCommand, util, xs_errors, xmlrpclib, LUNperVDI 
+import BaseISCSI, VDI, scsiutil, SR, SRCommand, util, xs_errors, xmlrpclib, LUNperVDI 
 import socket, os, copy, sys, pxssh
 from xml.dom.minidom import parseString
 
-''' start of modified parameters, pretty much direct copy from ISCSISR.py '''
+''' start of modified parameters, pretty much direct copy from BaseISCSI.py '''
 CAPABILITIES = ["SR_PROBE","VDI_CREATE","VDI_DELETE","VDI_ATTACH",
                 "VDI_DETACH", "VDI_INTRODUCE"]
 
@@ -42,12 +42,14 @@ MAX_LUNID_TIMEOUT = 60
 ISCSI_PROCNAME = "iscsi_tcp"
 # changing default port to monitor port
 DEFAULT_PORT = 6789
-''' end of modified definitions of paramters like in ISCSISR.py '''
+''' end of modified definitions of paramters like in BaseISCSI.py '''
+
+def ver_rbdsr():
+    return "2.0.0"
 
 def dbg_prt(fmt, *arg):
     output = fmt % arg + '\n'
     util.SMlog(output)
-
     # print output
 '''
     dbg_log = open('/root/rbdsr.log', 'a')
@@ -55,7 +57,9 @@ def dbg_prt(fmt, *arg):
     dbg_log.flush()
     dbg_log.close()
 '''
-class RBDSR(ISCSISR.ISCSISR):
+
+
+class RBDSR(BaseISCSI.BaseISCSISR):
     def handles(type):
         dbg_prt("[rbdsr] handles")
         if type == "rbd":
@@ -88,7 +92,6 @@ class RBDSR(ISCSISR.ISCSISR):
             
             ### Getting RBD image corresponding to RBD pool
             block_list = self._getCEPH_response('rbd -p %s ls' % pool_name)
-            block_list.pop() # pop last one which is a blank
             rbd_image_list = self._formatRBD_image(pool_name, block_list)
             dbg_prt("[rbdsr] rbd ls, poolname:[%s], block_list:[%s], rbd_image_list:[%s]", pool_name, block_list, rbd_image_list)
             
@@ -111,7 +114,6 @@ class RBDSR(ISCSISR.ISCSISR):
             dbg_prt("[rbdsr] Get RBD pool :")
             ### Getting RBD pool using ssh user and password
             rbd_pool_string = self._getCEPH_response('ceph osd lspools')
-            rbd_pool_string.pop() # remove last one which is a blank.
             if 'fault' in rbd_pool_string or not rbd_pool_string:
                 raise xs_errors.XenError('ISCSILogin')
             else:
@@ -129,7 +131,7 @@ class RBDSR(ISCSISR.ISCSISR):
                      pool = "*"
                 map.append((real_address+":"+self.dconf['port'],"0",pool))
             util.SMlog(map)
-            # Recycling code here and calling print_entries from ISCSISR.py
+            # Recycling code here and calling print_entries from BaseISCSI.py
             super(RBDSR, self).print_entries(map)
             # User hasn't selected targetIQN yet, so throwing xs_error like in its iSCSI counterpart
             raise xs_errors.XenError('ConfigTargetIQNMissing')
@@ -199,10 +201,14 @@ class RBDSR(ISCSISR.ISCSISR):
                 rbd_image = open(rbd_image_path,'w')
                 image_info_response = self._getCEPH_response('rbd --format json -p %s info %s' % (rbd_pool_name, block))
                 image_info = ''
+                if image_info_response != None and len(image_info_response) == 1:
+                    image_info = image_info_response[0]
+                '''
                 if len(image_info_response) >=3:
                     image_info = image_info_response[2]
                 else:
                     image_info = image_info_response[1]
+                '''
                 util.SMlog('RBD info of the image is %s' % image_info)
                 rbd_image.write('%s' % image_info)
                 rbd_image.close()
@@ -259,11 +265,21 @@ class RBDSR(ISCSISR.ISCSISR):
             result = s.before.split('\n')
             # remove the last one which is a blank
             dbg_prt("[rbdsr] ceph_response cmd : [%s], result : [%s], result_len : %d", cmd, result, len(result))
+            # reomve '\r' and ''
+            for item in result:
+                if item == '\r':
+                    result.remove(item)
+                elif item == '':
+                    result.remove(item)
+            dbg_prt("[rbdsr] ceph_response result : %s , result_len: %d", result, len(result))
             return result[1:]
                 
                 
     def attach(self, sr_uuid):
-        dbg_prt("[rbdsr] attach")
+        # LVHDoISCSI likes to call attach to get target information. if we have block device already attached, we don't need to do it again
+        if self.dconf.has_key('SCSIid') and self.dconf['SCSIid'] and os.path.exists('/dev/rbd%s' % self._getRBD_index(self.dconf['SCSIid'])):
+            self.attached = True 
+            return
         ### Getting MON list using admin key above
         ceph_mon_list_xml = self._getCEPH_response('ceph mon_status -f xml')
         ceph_mon_list = self._formatMON_list(ceph_mon_list_xml)
@@ -307,7 +323,7 @@ class RBDSR(ISCSISR.ISCSISR):
                     os.symlink('../../../rbd%s' % rbd_image_index, '%s/rbd%s' % (rbd_scsi_path,rbd_image_index))
                     self.attached = True
                 except IOError, e:
-                    util.SMlog('the error is %s' % e)
+                    util.SMlog('Attach thrown exception and the error is %s' % e)
                     self.attached = False
             else:
                 dbg_prt("[rbdsr] rbd_disk_path:%s , rbd_block_index:%s",rbd_disk_path,rbd_block_index)
@@ -333,19 +349,21 @@ class RBDSR(ISCSISR.ISCSISR):
                 dbg_prt("[rbdsr] cleanCEPH_folder:%s",rbd_scsi_path)
                 self._cleanCEPH_folder(rbd_scsi_path)
             if os.path.exists('/dev/rbd%s' % rbd_image_index):
-                dbg_prt("[rbdsr] remove rbd device idx:%s",rbd_image_index)
-                rbd_remove = open('/sys/bus/rbd/remove','w')
-                rbd_remove.write(rbd_image_index)
-                rbd_remove.close()
-        else:
-            dbg_prt("[rbdsr] detach do nothing !")
-        self.attached = False
+                try:
+                    util.time.sleep(MAX_TIMEOUT) 
+                    with open('/sys/bus/rbd/remove','w') as rem:
+                        util.SMlog("Writing %s into rbd/remove" % rbd_image_index)
+                        rem.write(rbd_image_index)
+                        self.attached = False
+                except IOError, e:
+                    util.SMlog('Detach thrown exception and the error is %s' % e)
+                    self.attached = True
       
       
     def refresh(self):
-        dbg_prt("[rbdsr] refresh")
-        # Unlike iSCSI SR we don't need to refresh paths or rescan sessions
-        pass
+        # Unlike iSCSI SR we don't need to refresh paths or rescan sessions,
+        # but if disk hasn't been attached already(like when creating SR) we can do it now
+        self.attach('temp_mount')
 
     def print_LUNs(self):
         dbg_prt("[rbdsr] PRT_LUNS begin ===>")
@@ -403,6 +421,9 @@ class RBDSR(ISCSISR.ISCSISR):
       
 dbg_prt("----------------------------------------------------------")
 if __name__ == '__main__':
+    if len(sys.argv) == 2 and sys.argv[1] == "version":
+        print "Version : %s" %  ver_rbdsr()
+        sys.exit(0)
     SRCommand.run(RBDSR, DRIVER_INFO)
 else:
     SR.registerSR(RBDSR)

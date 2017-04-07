@@ -1,10 +1,10 @@
---- ./mpath_dmp.py	2016-05-10 15:03:40.000000000 +0800
-+++ ./mpath_dmp.py.new	2016-05-10 15:02:23.000000000 +0800
-@@ -288,6 +288,10 @@
+--- ./krbdsr-orig/mpath_dmp.py-orig	2017-04-06 15:04:27.000000000 +0800
++++ ./mpath_dmp.py	2017-04-06 10:03:56.922492203 +0800
+@@ -309,6 +309,10 @@
      else:
          return DEVBYIDPATH + "/scsi-" + SCSIid
  
-+# modify by zhoub
++# add function 'path_nomp' by zhoub 
 +def path_nomp(SCSIid):
 +    return DEVBYIDPATH + "/scsi-" + SCSIid
 +

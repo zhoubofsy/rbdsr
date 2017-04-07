@@ -1,14 +1,14 @@
---- ./SR.py.orig	2016-05-10 14:45:56.000000000 +0800
-+++ ./SR.py.new	2016-05-10 14:49:21.000000000 +0800
-@@ -469,7 +469,10 @@
-             self.mpathmodule.deactivate()
+--- ./krbdsr-orig/SR.py-orig	2017-04-06 15:04:27.000000000 +0800
++++ ./SR.py	2017-04-06 11:16:10.656602225 +0800
+@@ -475,7 +475,10 @@
  
-     def _pathrefresh(self, obj):
--        self.dconf['device'] = self.mpathmodule.path(self.SCSIid)
+     def _pathrefresh(self, obj, load = True):
+         SCSIid = getattr(self, 'SCSIid')
+-        self.dconf['device'] = self.mpathmodule.path(SCSIid)
 +        if self.dconf.has_key('port') and self.dconf['port'] == '6789':
-+            self.dconf['device'] = self.mpathmodule.path_nomp(self.SCSIid)
++            self.dconf['device'] = self.mpathmodule.path_nomp(SCSIid)
 +        else:
-+            self.dconf['device'] = self.mpathmodule.path(self.SCSIid)
-         super(obj, self).load(self.uuid)
++            self.dconf['device'] = self.mpathmodule.path(SCSIid)
+         if load:
+             super(obj, self).load(self.uuid)
  
-     def _setMultipathableFlag(self, SCSIid=''):
